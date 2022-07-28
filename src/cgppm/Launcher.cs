@@ -1,8 +1,10 @@
-﻿using cgppm.Netpbm;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using cgppm.Netpbm;
+using cgppm.Properties;
+using cgppm.UI;
 
 namespace cgppm
 {
@@ -10,7 +12,11 @@ namespace cgppm
     {
         private static List<string> _switches;
         private static List<string> _files;
-        private static List<Image> _convertedImages = new List<Image>();
+
+        /// <summary>
+        ///     Gets the result of image conversion.
+        /// </summary>
+        public static List<Image> ConvertedImages { get; } = new List<Image>();
 
         [STAThread]
         public static void Main(string[] args)
@@ -23,10 +29,11 @@ namespace cgppm
             _files = args.Where(s => File.Exists(s)).ToList();
             Console.WriteLine("done.");
 
-            if ((_files.Count == 0 && _switches.Count == 0) || _switches.Contains("?") || _switches.Contains("h") || _switches.Contains("help"))
+            if ((_files.Count == 0 && _switches.Count == 0) || _switches.Contains("?") || _switches.Contains("h") ||
+                _switches.Contains("help"))
             {
                 Console.WriteLine();
-                Console.WriteLine(Properties.Resources.Help);
+                Console.WriteLine(Resources.Help);
                 return;
             }
 
@@ -36,12 +43,13 @@ namespace cgppm
                 Console.WriteLine("No files were found. Specify some files and try again.");
                 return;
             }
-            Console.WriteLine(string.Format("Found {0} file(s).", _files.Count));
 
-            Dictionary<string, RawImage> rawImages = ParseFiles();
+            Console.WriteLine("Found {0} file(s).", _files.Count);
+
+            var rawImages = ParseFiles();
             ConvertImages(rawImages);
 
-            string targetDir = GetTargetDirectory();
+            var targetDir = GetTargetDirectory();
             SaveImages(targetDir);
             DeleteSourceFiles();
             ShowUI();
@@ -55,12 +63,9 @@ namespace cgppm
         {
             // Parse files
             Console.Write("Parsing Netpbm files... ");
-            Parser parser = new Parser();
-            Dictionary<string, RawImage> rawImages = new Dictionary<string, RawImage>();
-            foreach (string file in _files)
-            {
-                rawImages.Add(Path.GetFullPath(file), parser.Read(file));
-            }
+            var parser = new Parser();
+            var rawImages = new Dictionary<string, RawImage>();
+            foreach (var file in _files) rawImages.Add(Path.GetFullPath(file), parser.Read(file));
             Console.WriteLine("done.");
             return rawImages;
         }
@@ -71,7 +76,7 @@ namespace cgppm
             if (_switches.Contains("8") || _switches.Contains("8bit") || _switches.Contains("8-bit"))
             {
                 Console.Write("Generating 8-bit images... ");
-                _convertedImages.AddRange(Convert8Bit(rawImages));
+                ConvertedImages.AddRange(Convert8Bit(rawImages));
                 Console.WriteLine("done.");
             }
 
@@ -79,7 +84,7 @@ namespace cgppm
             if (_switches.Contains("16") || _switches.Contains("16bit") || _switches.Contains("16-bit"))
             {
                 Console.Write("Generating 16-bit images... ");
-                _convertedImages.AddRange(Convert16Bit(rawImages));
+                ConvertedImages.AddRange(Convert16Bit(rawImages));
                 Console.WriteLine("done.");
             }
         }
@@ -87,11 +92,9 @@ namespace cgppm
         private static string GetTargetDirectory()
         {
             // Get target dir
-            string targetDir = _switches.FirstOrDefault(s => s.StartsWith("target:") || s.StartsWith("target-dir:") || s.StartsWith("dir:"));
-            if (targetDir != null)
-            {
-                targetDir = targetDir.Split(new char[] { ':' }, 2)[1];
-            }
+            var targetDir = _switches.FirstOrDefault(s =>
+                s.StartsWith("target:") || s.StartsWith("target-dir:") || s.StartsWith("dir:"));
+            if (targetDir != null) targetDir = targetDir.Split(new[] { ':' }, 2)[1];
             return targetDir;
         }
 
@@ -101,7 +104,7 @@ namespace cgppm
             if (_switches.Contains("save:png") || _switches.Contains("save-png") || _switches.Contains("savepng"))
             {
                 Console.Write("Saving as PNG... ");
-                SavePng(_convertedImages, targetDir);
+                SavePng(ConvertedImages, targetDir);
                 Console.WriteLine("done.");
             }
 
@@ -110,7 +113,7 @@ namespace cgppm
                 _switches.Contains("save:jpeg") || _switches.Contains("save-jpeg") || _switches.Contains("savejpeg"))
             {
                 Console.Write("Saving as JPG... ");
-                SaveJpg(_convertedImages, targetDir);
+                SaveJpg(ConvertedImages, targetDir);
                 Console.WriteLine("done.");
             }
 
@@ -118,20 +121,18 @@ namespace cgppm
             if (_switches.Contains("save:bmp") || _switches.Contains("save-bmp") || _switches.Contains("savebmp"))
             {
                 Console.Write("Saving as BMP... ");
-                SaveBmp(_convertedImages, targetDir);
+                SaveBmp(ConvertedImages, targetDir);
                 Console.WriteLine("done.");
             }
         }
 
         private static void DeleteSourceFiles()
         {
-            if (_switches.Contains("delete-source") || _switches.Contains("delete-source-files") || _switches.Contains("deletesource"))
+            if (_switches.Contains("delete-source") || _switches.Contains("delete-source-files") ||
+                _switches.Contains("deletesource"))
             {
                 Console.Write("Deleting source files... ");
-                foreach (string sourceFile in _files)
-                {
-                    File.Delete(sourceFile);
-                }
+                foreach (var sourceFile in _files) File.Delete(sourceFile);
                 Console.WriteLine("done.");
             }
         }
@@ -139,52 +140,48 @@ namespace cgppm
         private static void ShowUI()
         {
             // The option for showing a ui
-            if (_switches.Contains("ui") || _switches.Contains("show") || _switches.Contains("showui") || _switches.Contains("show-ui"))
+            if (_switches.Contains("ui") || _switches.Contains("show") || _switches.Contains("showui") ||
+                _switches.Contains("show-ui"))
             {
                 Console.WriteLine("Starting UI...");
                 Console.Write("Waiting for all UI windows to close... ");
-                UI.App.Main();
+                App.Main();
                 Console.WriteLine("UI closed.");
             }
         }
-        #endregion
 
-        /// <summary>
-        /// Gets the result of image conversion.
-        /// </summary>
-        public static List<Image> ConvertedImages
-        {
-            get
-            {
-                return _convertedImages;
-            }
-        }
+        #endregion
 
         #region Converting
 
         private static List<Image> Convert8Bit(Dictionary<string, RawImage> rawImages)
         {
-            List<Image> images = new List<Image>();
-            ImageConverter ic = new ImageConverter();
-            foreach (KeyValuePair<string, RawImage> rawImage in rawImages)
+            var images = new List<Image>();
+            var ic = new ImageConverter();
+            foreach (var rawImage in rawImages)
             {
-                string name = string.Format("{0}-8bit", Path.GetFileNameWithoutExtension(rawImage.Key));
-                images.Add(new Image(name, Path.GetDirectoryName(rawImage.Key), ic.ConvertNetpbmTo8Bit(rawImage.Value)));
+                var name = string.Format("{0}-8bit", Path.GetFileNameWithoutExtension(rawImage.Key));
+                images.Add(new Image(name, Path.GetDirectoryName(rawImage.Key),
+                    ic.ConvertNetpbmTo8Bit(rawImage.Value)));
             }
+
             return images;
         }
 
         private static List<Image> Convert16Bit(Dictionary<string, RawImage> rawImages)
         {
-            List<Image> images = new List<Image>();
-            ImageConverter ic = new ImageConverter();
-            foreach (KeyValuePair<string, RawImage> rawImage in rawImages)
+            var images = new List<Image>();
+            var ic = new ImageConverter();
+            foreach (var rawImage in rawImages)
             {
-                string name = string.Format("{0}-16bit", Path.GetFileNameWithoutExtension(rawImage.Key));
-                images.Add(new Image(name, Path.GetDirectoryName(rawImage.Key), ic.ConvertNetpbmTo8Bit(rawImage.Value)));
+                var name = string.Format("{0}-16bit", Path.GetFileNameWithoutExtension(rawImage.Key));
+                images.Add(new Image(name, Path.GetDirectoryName(rawImage.Key),
+                    ic.ConvertNetpbmTo8Bit(rawImage.Value)));
             }
+
             return images;
         }
+
         #endregion
 
         #region Saving images
@@ -192,32 +189,33 @@ namespace cgppm
         private static void SavePng(IEnumerable<Image> images, string directory)
         {
             if (directory != null) Directory.CreateDirectory(directory);
-            foreach (Image image in images)
+            foreach (var image in images)
             {
-                string dir = directory ?? image.Path;
-                Utilities.SaveBitmapSourceAsPng(image.BitmapSource, Path.Combine(dir, image.Name + ".png"));
+                var dir = directory ?? image.Path;
+                image.BitmapSource.SaveBitmapSourceAsPng(Path.Combine(dir, image.Name + ".png"));
             }
         }
 
         private static void SaveJpg(IEnumerable<Image> images, string directory)
         {
             if (directory != null) Directory.CreateDirectory(directory);
-            foreach (Image image in images)
+            foreach (var image in images)
             {
-                string dir = directory ?? image.Path;
-                Utilities.SaveBitmapSourceAsJpg(image.BitmapSource, Path.Combine(dir, image.Name + ".jpg"));
+                var dir = directory ?? image.Path;
+                image.BitmapSource.SaveBitmapSourceAsJpg(Path.Combine(dir, image.Name + ".jpg"));
             }
         }
 
         private static void SaveBmp(IEnumerable<Image> images, string directory)
         {
             if (directory != null) Directory.CreateDirectory(directory);
-            foreach (Image image in images)
+            foreach (var image in images)
             {
-                string dir = directory ?? image.Path;
-                Utilities.SaveBitmapSourceAsBmp(image.BitmapSource, Path.Combine(dir, image.Name + ".bmp"));
+                var dir = directory ?? image.Path;
+                image.BitmapSource.SaveBitmapSourceAsBmp(Path.Combine(dir, image.Name + ".bmp"));
             }
         }
+
         #endregion
     }
 }
